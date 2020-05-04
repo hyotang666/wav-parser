@@ -140,6 +140,7 @@
   chunk)
 
 ;;;; LABL
+; https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#labl
 
 (defclass labl (r-iff:leaf)
   ((cue-point-id :initarg :cue-point-id
@@ -161,7 +162,7 @@
                      (make-array (list (- size 4))
                                  :element-type '(unsigned-byte 8))))
                 (assert (= (- size 4) (read-sequence v stream)))
-                (babel:octets-to-string v)))))
+                (string-right-trim '(#\nul) (babel:octets-to-string v))))))
   (when (oddp (- size 4))
     (read-byte stream))
   chunk)
@@ -169,13 +170,15 @@
 (defmethod r-iff:compute-length ((chunk labl))
   (+ r-iff:+size-of-header+ 4
      (if (slot-boundp chunk 'text)
-         (babel:string-size-in-octets (text chunk))
+         (1+ ; <--- Nul char length.
+          (babel:string-size-in-octets (text chunk)))
          0)))
 
 (defmethod r-iff:write-chunk ((chunk labl) stream)
   (nibbles:write-ub32/le (cue-point-id chunk) stream)
   (when (slot-boundp chunk 'text)
-    (write-sequence (babel:string-to-octets (text chunk)) stream))
+    (write-sequence (babel:string-to-octets (text chunk)) stream)
+    (write-byte 0 stream))
   chunk)
 
 ;;;; PARSERS
