@@ -143,10 +143,9 @@
 
 (r-iff:defparser "WAVE" #'r-iff:node)
 
-(r-iff:defparser "fmt "
-                 (lambda (&rest args)
-                   (let ((r-iff:*leaf-class* 'fmt))
-                     (apply #'r-iff:leaf args))))
+(r-iff:defparser "fmt " #'r-iff:leaf :default-class fmt)
+
+(r-iff:defparser "cue " #'r-iff:leaf :default-class cue)
 
 (r-iff:defparser "data" #'r-iff:leaf)
 
