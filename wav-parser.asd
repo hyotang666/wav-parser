@@ -4,7 +4,11 @@
   :version
   "0.0.0"
   :depends-on
-  nil
+  (
+   "r-iff" ; RIFF file reader/writer.
+   "flexi-streams" ; In memory streams.
+   "nibbles" ; Byte read/write.
+   )
   :pathname
   "src/"
   :components
