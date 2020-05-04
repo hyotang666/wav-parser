@@ -139,6 +139,45 @@
     (r-iff:write-chunk cue-point stream))
   chunk)
 
+;;;; LABL
+
+(defclass labl (r-iff:leaf)
+  ((cue-point-id :initarg :cue-point-id
+                 :type (unsigned-byte 32)
+                 :accessor cue-point-id)
+   (text :initarg :text :type string :accessor text)))
+
+(defmethod print-object ((chunk labl) stream)
+  (print-unreadable-object (chunk stream :type t) (prin1 (text chunk) stream)))
+
+(defmethod initialize-instance ((chunk labl) &key id stream size)
+  (with-slots ((chunk-id r-iff:id) cue-point-id text)
+      chunk
+    (setf chunk-id id
+          cue-point-id (nibbles:read-ub32/le stream))
+    (when (< 4 size)
+      (setf text
+              (let ((v
+                     (make-array (list (- size 4))
+                                 :element-type '(unsigned-byte 8))))
+                (assert (= (- size 4) (read-sequence v stream)))
+                (babel:octets-to-string v)))))
+  (when (oddp (- size 4))
+    (read-byte stream))
+  chunk)
+
+(defmethod r-iff:compute-length ((chunk labl))
+  (+ r-iff:+size-of-header+ 4
+     (if (slot-boundp chunk 'text)
+         (babel:string-size-in-octets (text chunk))
+         0)))
+
+(defmethod r-iff:write-chunk ((chunk labl) stream)
+  (nibbles:write-ub32/le (cue-point-id chunk) stream)
+  (when (slot-boundp chunk 'text)
+    (write-sequence (babel:string-to-octets (text chunk)) stream))
+  chunk)
+
 ;;;; PARSERS
 
 (r-iff:defparser "WAVE" #'r-iff:node)
@@ -149,7 +188,7 @@
 
 (r-iff:defparser "data" #'r-iff:leaf)
 
-(r-iff:defparser "adtl" #'r-iff:node)
+(r-iff:defparser "labl" #'r-iff:leaf :default-class labl)
 
 ;;;; IMPORT
 
