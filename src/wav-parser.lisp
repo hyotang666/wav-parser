@@ -75,6 +75,70 @@
           (write-sequence (extra-params chunk) stream)))))
   chunk)
 
+;;;; cue chunk
+
+(defclass cue (r-iff:leaf) ())
+
+(defclass cue-point ()
+  ((id :initarg :id :type (unsigned-byte 32) :accessor id<-cue-point)
+   (position :initarg :position
+             :type (unsigned-byte 32)
+             :accessor position<-cue-point)
+   (data-chunk-id :initarg :data-chunk-id
+                  :type r-iff:id
+                  :accessor data-chunk-id)
+   (chunk-start :initarg :chunk-start
+                :type (unsigned-byte 32)
+                :accessor chunk-start)
+   (block-start :initarg :block-start
+                :type (unsigned-byte 32)
+                :accessor block-start)
+   (sample-start :initarg :sample-start
+                 :type (unsigned-byte 32)
+                 :accessor sample-start)))
+
+(defconstant +size-of-cue-point+ 24)
+
+(defmethod r-iff:write-chunk ((chunk cue-point) stream)
+  (nibbles:write-ub32/le (id<-cue-point chunk) stream)
+  (nibbles:write-ub32/le (position<-cue-point chunk) stream)
+  (write-sequence (babel:octets-to-string (data-chunk-id chunk)) stream)
+  (nibbles:write-ub32/le (chunk-start chunk) stream)
+  (nibbles:write-ub32/le (block-start chunk) stream)
+  (nibbles:write-ub32/le (sample-start chunk) stream)
+  chunk)
+
+(defmethod initialize-instance ((chunk cue) &key id stream size)
+  (declare (ignore size))
+  (with-slots ((chunk-id r-iff:id) (chunk-data r-iff:data))
+      chunk
+    (setf chunk-id id
+          chunk-data
+            (loop :repeat (nibbles:read-ub32/le stream)
+                  :collect (make-instance 'cue-point
+                                          :id (nibbles:read-ub32/le stream)
+                                          :position (nibbles:read-ub32/le
+                                                      stream)
+                                          :data-chunk-id (r-iff::read-id
+                                                           stream)
+                                          :chunk-start (nibbles:read-ub32/le
+                                                         stream)
+                                          :block-start (nibbles:read-ub32/le
+                                                         stream)
+                                          :sample-start (nibbles:read-ub32/le
+                                                          stream)))))
+  chunk)
+
+(defmethod r-iff:compute-length ((chunk cue))
+  (+ r-iff:+size-of-header+ 4
+     (* +size-of-cue-point+ (length (r-iff:data<-chunk chunk)))))
+
+(defmethod r-iff:write-chunk ((chunk cue) stream)
+  (nibbles:write-ub32/le (length (r-iff:data<-chunk chunk)) stream)
+  (dolist (cue-point (r-iff:data<-chunk chunk))
+    (r-iff:write-chunk cue-point stream))
+  chunk)
+
 ;;;; PARSERS
 
 (r-iff:defparser "WAVE" #'r-iff:node)
