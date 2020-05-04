@@ -149,6 +149,8 @@
 
 (r-iff:defparser "data" #'r-iff:leaf)
 
+(r-iff:defparser "adtl" #'r-iff:node)
+
 ;;;; IMPORT
 
 (defun wav (pathname) (r-iff:riff pathname))
