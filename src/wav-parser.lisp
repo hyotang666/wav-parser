@@ -183,12 +183,9 @@
    (originator-reference :initarg :originator-reference
                          :type string
                          :accessor originator-reference)
-   (origination-date :initarg :origination-date
-                     :type string
-                     :accessor origination-date)
-   (origination-time :initarg :origination-time
-                     :type string
-                     :accessor origination-time)
+   (timestamp :initarg :timestamp
+              :type local-time:timestamp
+              :accessor timestamp)
    (time-reference-low :initarg :time-reference-low
                        :type (unsigned-byte 32)
                        :accessor time-reference-low)
@@ -216,12 +213,19 @@
                    :type string
                    :accessor coding-history)))
 
+(defun make-stamp (string)
+  (local-time:universal-to-timestamp
+    (apply #'encode-universal-time
+           (nreverse
+             (nsubstitute 0 nil
+                          (subseq (local-time::split-timestring string) 0
+                                  6)))))) ; 2020-02-08 22:40:56
+
 (defmethod initialize-instance ((chunk bext) &key id stream size)
   (with-slots ((chunk-id r-iff:id) description originator originator-reference
-               origination-date origination-time time-reference-low
-               time-reference-high version umids loudness-value loudness-range
-               max-peak-true-level max-momentary-loudness
-               max-short-term-loudness coding-history)
+               timestamp time-reference-low time-reference-high version umids
+               loudness-value loudness-range max-peak-true-level
+               max-momentary-loudness max-short-term-loudness coding-history)
       chunk
     (setf chunk-id id
           description
@@ -229,8 +233,10 @@
           originator (string-right-trim '(#\Nul) (r-iff:read-string stream 32))
           originator-reference
             (string-right-trim '(#\Nul) (r-iff:read-string stream 32))
-          origination-date (r-iff:read-string stream 10)
-          origination-time (r-iff:read-string stream 8)
+          timestamp
+            (make-stamp
+              (concatenate 'string (r-iff:read-string stream 10) "T"
+                           (r-iff:read-string stream 8)))
           time-reference-low (nibbles:read-ub32/le stream)
           time-reference-high (nibbles:read-ub32/le stream)
           version (nibbles:read-ub16/le stream)
@@ -246,16 +252,22 @@
     (setf coding-history
             (let ((string
                    (read-string stream
-                                (- size 256 32 32 10 8 4 4 2 64 2 2 2 2 2
-                                   180))))
+                                (- size 256 32 32 18 4 4 2 64 2 2 2 2 2 180))))
               (string-right-trim '(#\Nul #\Newline #\Return) string))))
   chunk)
 
 (defmethod r-iff:compute-length ((chunk bext))
-  (+ 256 32 32 4 2 64 2 2 2 2 2 180
+  (+ 256 32 32 18 4 4 2 64 2 2 2 2 2 180
      (r-iff:ensure-even (babel:string-size-in-octets (coding-history chunk))) 2 ; <---
                                                                                 ; CR/LF
      ))
+
+(defmethod r-iff:write-chunk ((chunk local-time:timestamp) stream)
+  (let ((time-string (local-time:to-rfc3339-timestring chunk)))
+    (write-sequence (babel:string-to-octets time-string :end 10) stream)
+    (write-sequence (babel:string-to-octets time-string :start 11 :end 19)
+                    stream))
+  chunk)
 
 (defmethod r-iff:write-chunk ((chunk bext) stream)
   (flet ((write-ranged-string (string size)
@@ -266,8 +278,7 @@
     (write-ranged-string (description chunk) 256)
     (write-ranged-string (originator chunk) 32)
     (write-ranged-string (originator-reference chunk) 32))
-  (write-sequence (babel:string-to-octets (origination-date chunk)) stream)
-  (write-sequence (babel:string-to-octets (origination-time chunk)) stream)
+  (write-chunk (timestamp chunk) stream)
   (nibbles:write-ub32/le (time-reference-low chunk) stream)
   (nibbles:write-ub32/le (time-reference-high chunk) stream)
   (nibbles:write-ub16/le (version chunk) stream)
