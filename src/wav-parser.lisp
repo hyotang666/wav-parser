@@ -38,11 +38,7 @@
     (setf bits-per-sample (nibbles:read-ub16/le stream))
     (when (< 16 size)
       (setf extra-params
-              (let ((v
-                     (make-array (list (nibbles:read-ub16/le stream))
-                                 :element-type '(unsigned-byte 8))))
-                (assert (= size (read-sequence v stream)))
-                v)))
+              (r-iff:read-vector stream (nibbles:read-ub16/le stream))))
     o))
 
 (defun byte-rate (fmt)
