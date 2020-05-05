@@ -154,11 +154,8 @@
           cue-point-id (nibbles:read-ub32/le stream))
     (when (< 4 size)
       (setf text
-              (let ((v
-                     (make-array (list (- size 4))
-                                 :element-type '(unsigned-byte 8))))
-                (assert (= (- size 4) (read-sequence v stream)))
-                (string-right-trim '(#\nul) (babel:octets-to-string v))))))
+              (string-right-trim '(#\Nul)
+                                 (r-iff:read-string stream (- size 4))))))
   (when (oddp (- size 4))
     (read-byte stream))
   chunk)
