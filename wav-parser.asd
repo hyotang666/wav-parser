@@ -2,7 +2,7 @@
 (in-package :asdf)
 (defsystem "wav-parser"
   :version
-  "0.4.2"
+  "0.5.0"
   :depends-on
   (
    "r-iff" ; RIFF file reader/writer.

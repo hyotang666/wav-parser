@@ -216,14 +216,6 @@
                    :type string
                    :accessor coding-history)))
 
-(defun read-till-null (stream max &key (key #'identity))
-  (loop :for byte := (read-byte stream)
-        :repeat max
-        :until (= 0 byte)
-        :collect byte :into bytes
-        :finally (return
-                  (funcall key (coerce bytes '(vector (unsigned-byte 8)))))))
-
 (defmethod initialize-instance ((chunk bext) &key id stream size)
   (with-slots ((chunk-id r-iff:id) description originator originator-reference
                origination-date origination-time time-reference-low
@@ -232,10 +224,11 @@
                max-short-term-loudness coding-history)
       chunk
     (setf chunk-id id
-          description (read-till-null stream 256 :key #'babel:octets-to-string)
-          originator (read-till-null stream 32 :key #'babel:octets-to-string)
+          description
+            (string-right-trim '(#\Nul) (r-iff:read-string stream 256))
+          originator (string-right-trim '(#\Nul) (r-iff:read-string stream 32))
           originator-reference
-            (read-till-null stream 32 :key #'babel:octets-to-string)
+            (string-right-trim '(#\Nul) (r-iff:read-string stream 32))
           origination-date (r-iff:read-string stream 10)
           origination-time (r-iff:read-string stream 8)
           time-reference-low (nibbles:read-ub32/le stream)
@@ -253,38 +246,26 @@
     (setf coding-history
             (let ((string
                    (read-string stream
-                                (- size
-                                   (+ 1
-                                      (babel:string-size-in-octets
-                                        description))
-                                   (+ 1
-                                      (babel:string-size-in-octets originator))
-                                   (+ 1
-                                      (babel:string-size-in-octets
-                                        originator-reference))
-                                   10 8 4 4 2 64 2 2 2 2 2 180))))
+                                (- size 256 32 32 10 8 4 4 2 64 2 2 2 2 2
+                                   180))))
               (string-right-trim '(#\Nul #\Newline #\Return) string))))
   chunk)
 
 (defmethod r-iff:compute-length ((chunk bext))
-  (+ (max 256 (babel:string-size-in-octets (description chunk)))
-     (max 32 (babel:string-size-in-octets (originator chunk)))
-     (max 32 (babel:string-size-in-octets (originator-reference chunk))) 10 8 4
-     4 2 64 2 2 2 2 2 180
+  (+ 256 32 32 4 2 64 2 2 2 2 2 180
      (r-iff:ensure-even (babel:string-size-in-octets (coding-history chunk))) 2 ; <---
                                                                                 ; CR/LF
      ))
 
 (defmethod r-iff:write-chunk ((chunk bext) stream)
-  (let ((vector (babel:string-to-octets (description chunk))))
-    (write-sequence vector stream :end (min 255 (length vector))))
-  (write-byte 0 stream)
-  (let ((vector (babel:string-to-octets (originator chunk))))
-    (write-sequence vector stream :end (min 31 (length vector))))
-  (write-byte 0 stream)
-  (let ((vector (babel:string-to-octets (originator-reference chunk))))
-    (write-sequence vector stream :end (min 31 (length vector))))
-  (write-byte 0 stream)
+  (flet ((write-ranged-string (string size)
+           (let ((octets (nibbles:make-octet-vector size))
+                 (vector (babel:string-to-octets string)))
+             (replace octets vector :end2 (min 255 (length vector)))
+             (write-sequence octets stream))))
+    (write-ranged-string (description chunk) 256)
+    (write-ranged-string (originator chunk) 32)
+    (write-ranged-string (originator-reference chunk) 32))
   (write-sequence (babel:string-to-octets (origination-date chunk)) stream)
   (write-sequence (babel:string-to-octets (origination-time chunk)) stream)
   (nibbles:write-ub32/le (time-reference-low chunk) stream)
