@@ -275,13 +275,15 @@
                                                                                 ; CR/LF
      ))
 
-(defmethod write-chunk ((chunk bext) stream)
-  (write-sequence (babel:string-to-octets (description chunk)) stream :end 255)
+(defmethod r-iff:write-chunk ((chunk bext) stream)
+  (let ((vector (babel:string-to-octets (description chunk))))
+    (write-sequence vector stream :end (min 255 (length vector))))
   (write-byte 0 stream)
-  (write-sequence (babel:string-to-octets (originator chunk)) stream :end 31)
+  (let ((vector (babel:string-to-octets (originator chunk))))
+    (write-sequence vector stream :end (min 31 (length vector))))
   (write-byte 0 stream)
-  (write-sequence (babel:string-to-octets (originator-reference chunk)) stream
-                  :end 31)
+  (let ((vector (babel:string-to-octets (originator-reference chunk))))
+    (write-sequence vector stream :end (min 31 (length vector))))
   (write-byte 0 stream)
   (write-sequence (babel:string-to-octets (origination-date chunk)) stream)
   (write-sequence (babel:string-to-octets (origination-time chunk)) stream)
