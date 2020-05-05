@@ -164,13 +164,140 @@
   (+ r-iff:+size-of-header+ 4
      (if (slot-boundp chunk 'text)
          (1+ ; <--- Nul char length.
-          (babel:string-size-in-octets (text chunk)))
+             (babel:string-size-in-octets (text chunk)))
          0)))
 
 (defmethod r-iff:write-chunk ((chunk labl) stream)
   (nibbles:write-ub32/le (cue-point-id chunk) stream)
   (when (slot-boundp chunk 'text)
     (write-sequence (babel:string-to-octets (text chunk)) stream)
+    (write-byte 0 stream))
+  chunk)
+
+;;;; BROADCAST AUDIO EXTENSION "bext"
+; https://tech.ebu.ch/docs/tech/tech3285.pdf
+
+(defclass bext (r-iff:leaf)
+  ((description :initarg :description :type string :accessor description)
+   (originator :initarg :originator :type string :accessor originator)
+   (originator-reference :initarg :originator-reference
+                         :type string
+                         :accessor originator-reference)
+   (origination-date :initarg :origination-date
+                     :type string
+                     :accessor origination-date)
+   (origination-time :initarg :origination-time
+                     :type string
+                     :accessor origination-time)
+   (time-reference-low :initarg :time-reference-low
+                       :type (unsigned-byte 32)
+                       :accessor time-reference-low)
+   (time-reference-high :initarg :time-reference-high
+                        :type (unsigned-byte 32)
+                        :accessor time-reference-high)
+   (version :initarg :version :type (unsigned-byte 16) :accessor version)
+   (umids :initarg :umids :type (vector (unsigned-byte 8) 64) :accessor umids)
+   (loudness-value :initarg :loudness-value
+                   :type (signed-byte 16)
+                   :accessor loudness-value)
+   (loudness-range :initarg :loudness-range
+                   :type (signed-byte 16)
+                   :accessor loudness-range)
+   (max-peak-true-level :initarg :max-peak-true-level
+                        :type (signed-byte 16)
+                        :accessor max-peak-true-level)
+   (max-momentary-loudness :initarg :max-momentary-loudness
+                           :type (signed-byte 16)
+                           :accessor max-momentary-loudness)
+   (max-short-term-loudness :initarg :max-short-term-loudness
+                            :type (signed-byte 16)
+                            :accessor max-short-term-loudness)
+   (coding-history :initarg :coding-history
+                   :type string
+                   :accessor coding-history)))
+
+(defun read-till-null (stream max &key (key #'identity))
+  (loop :for byte := (read-byte stream)
+        :repeat max
+        :until (= 0 byte)
+        :collect byte :into bytes
+        :finally (return
+                  (funcall key (coerce bytes '(vector (unsigned-byte 8)))))))
+
+(defmethod initialize-instance ((chunk bext) &key id stream size)
+  (with-slots ((chunk-id r-iff:id) description originator originator-reference
+               origination-date origination-time time-reference-low
+               time-reference-high version umids loudness-value loudness-range
+               max-peak-true-level max-momentary-loudness
+               max-short-term-loudness coding-history)
+      chunk
+    (setf chunk-id id
+          description (read-till-null stream 256 :key #'babel:octets-to-string)
+          originator (read-till-null stream 32 :key #'babel:octets-to-string)
+          originator-reference
+            (read-till-null stream 32 :key #'babel:octets-to-string)
+          origination-date (r-iff:read-string stream 10)
+          origination-time (r-iff:read-string stream 8)
+          time-reference-low (nibbles:read-ub32/le stream)
+          time-reference-high (nibbles:read-ub32/le stream)
+          version (nibbles:read-ub16/le stream)
+          umids (r-iff:read-vector stream 64)
+          loudness-value (nibbles:read-sb16/le stream)
+          loudness-range (nibbles:read-sb16/le stream)
+          max-peak-true-level (nibbles:read-sb16/le stream)
+          max-momentary-loudness (nibbles:read-sb16/le stream)
+          max-short-term-loudness (nibbles:read-sb16/le stream))
+    ;; Discard reserved.
+    (loop :repeat 180
+          :do (read-byte stream))
+    (setf coding-history
+            (let ((string
+                   (read-string stream
+                                (- size
+                                   (+ 1
+                                      (babel:string-size-in-octets
+                                        description))
+                                   (+ 1
+                                      (babel:string-size-in-octets originator))
+                                   (+ 1
+                                      (babel:string-size-in-octets
+                                        originator-reference))
+                                   10 8 4 4 2 64 2 2 2 2 2 180))))
+              (string-right-trim '(#\Nul #\Newline #\Return) string))))
+  chunk)
+
+(defmethod r-iff:compute-length ((chunk bext))
+  (+ (max 256 (babel:string-size-in-octets (description chunk)))
+     (max 32 (babel:string-size-in-octets (originator chunk)))
+     (max 32 (babel:string-size-in-octets (originator-reference chunk))) 10 8 4
+     4 2 64 2 2 2 2 2 180 (r-iff:ensure-even (coding-history chunk)) 2 ; <---
+                                                                       ; CR/LF
+     ))
+
+(defmethod write-chunk ((chunk bext) stream)
+  (write-sequence (babel:string-to-octets (description chunk)) stream :end 255)
+  (write-byte 0 stream)
+  (write-sequence (babel:string-to-octets (originator chunk)) stream :end 31)
+  (write-byte 0 stream)
+  (write-sequence (babel:string-to-octets (originator-reference chunk)) stream
+                  :end 31)
+  (write-byte 0 stream)
+  (write-sequence (babel:string-to-octets (origination-date chunk)) stream)
+  (write-sequence (babel:string-to-octets (origination-time chunk)) stream)
+  (nibbles:write-ub32/le (time-reference-low chunk) stream)
+  (nibbles:write-ub32/le (time-reference-high chunk) stream)
+  (nibbles:write-ub16/le (version chunk) stream)
+  (write-sequence (umids chunk) stream)
+  (nibbles:write-sb16/le (loudness-value chunk) stream)
+  (nibbles:write-sb16/le (loudness-range chunk) stream)
+  (nibbles:write-sb16/le (max-peak-true-level chunk) stream)
+  (nibbles:write-sb16/le (max-momentary-loudness chunk) stream)
+  (nibbles:write-sb16/le (max-short-term-loudness chunk) stream)
+  (dotimes (x 180) (write-byte 0 stream))
+  (write-sequence (babel:string-to-octets (coding-history chunk)) stream)
+  (write-byte (char-code #\Return) stream)
+  (write-byte (char-code #\Newline) stream)
+  (when (oddp (babel:string-size-in-octets (coding-history chunk)))
     (write-byte 0 stream))
   chunk)
 
@@ -185,6 +312,8 @@
 (r-iff:defparser "data" #'r-iff:leaf)
 
 (r-iff:defparser "labl" #'r-iff:leaf :default-class labl)
+
+(r-iff:defparser "bext" #'r-iff:leaf :default-class bext)
 
 ;;;; IMPORT
 
