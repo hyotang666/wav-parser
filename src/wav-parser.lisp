@@ -270,8 +270,9 @@
   (+ (max 256 (babel:string-size-in-octets (description chunk)))
      (max 32 (babel:string-size-in-octets (originator chunk)))
      (max 32 (babel:string-size-in-octets (originator-reference chunk))) 10 8 4
-     4 2 64 2 2 2 2 2 180 (r-iff:ensure-even (coding-history chunk)) 2 ; <---
-                                                                       ; CR/LF
+     4 2 64 2 2 2 2 2 180
+     (r-iff:ensure-even (babel:string-size-in-octets (coding-history chunk))) 2 ; <---
+                                                                                ; CR/LF
      ))
 
 (defmethod write-chunk ((chunk bext) stream)
