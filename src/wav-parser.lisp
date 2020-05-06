@@ -300,8 +300,9 @@
           :do (read-byte stream))
     (setf coding-history
             (let ((string
-                   (read-string stream
-                                (- size 256 32 32 18 4 4 2 64 2 2 2 2 2 180))))
+                   (r-iff:read-string stream
+                                      (- size 256 32 32 18 4 4 2 64 2 2 2 2 2
+                                         180))))
               (string-right-trim '(#\Nul #\Newline #\Return) string))))
   chunk)
 
@@ -327,7 +328,7 @@
     (write-ranged-string (description chunk) 256)
     (write-ranged-string (originator chunk) 32)
     (write-ranged-string (originator-reference chunk) 32))
-  (write-chunk (timestamp chunk) stream)
+  (r-iff:write-chunk (timestamp chunk) stream)
   (nibbles:write-ub32/le (time-reference-low chunk) stream)
   (nibbles:write-ub32/le (time-reference-high chunk) stream)
   (nibbles:write-ub16/le (version chunk) stream)
