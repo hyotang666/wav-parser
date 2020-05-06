@@ -2,7 +2,53 @@
 
 (defpackage :wav-parser
   (:use :cl)
-  (:export))
+  (:export ;;;; FMT object.
+           ;; class-name
+           #:fmt
+           ;; accessors
+           #:audio-format
+           #:num-channels
+           #:sample-rate
+           #:bits-per-sample
+           #:extra-params
+           ;; Helpers function.
+           #:byte-rate
+           #:block-align)
+  (:export ;;;; CUE object.
+           ;; Class name.
+           #:cue
+           ;; Accessors.
+           #:position<-cue-point
+           #:data-chunk-id
+           #:chunk-start
+           #:block-start
+           #:sample-start
+           ;; Constant
+           #:+size-of-cue-point+)
+  (:export ;;;; LABL object.
+           ;; Class name.
+           #:labl
+           ;; Accessors
+           #:cue-point-id
+           #:text)
+  (:export ;;;; BEXT object.
+           ;; Class name.
+           #:bext
+           ;; Accessors.
+           #:description
+           #:originator
+           #:originator-reference
+           #:timestamp
+           #:time-reference-low
+           #:time-reference-high
+           #:version
+           #:umids
+           #:loudness-value
+           #:loudness-range
+           #:max-peak-true-level
+           #:max-momentary-loudness
+           #:max-short-term-loudness
+           #:coding-history))
 
 (in-package :wav-parser)
 
