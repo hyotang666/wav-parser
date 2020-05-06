@@ -1,8 +1,10 @@
 ; vim: ft=lisp et
 (in-package :asdf)
 (defsystem "wav-parser"
+  :description "Wav file format reader/writer."
+  :license "MIT"
   :version
-  "1.0.1"
+  "1.0.2"
   :depends-on
   (
    "r-iff" ; RIFF file reader/writer.

@@ -1,11 +1,13 @@
-# WAV-PARSER 0.0.0
+# WAV-PARSER 1.0.0
 ## What is this?
+Wav file format reader/writer.
 
-### Current lisp world
+## Features
 
-### Issues
-
-### Proposal
+* Support fmt object.
+* Support cue object.
+* Support labl object.
+* Support bext object.
 
 ## Usage
 
@@ -14,8 +16,10 @@
 ### Product's goal
 
 ### License
+MIT
 
 ### Developed with
+SBCL/2.0.2
 
 ### Tested with
 
