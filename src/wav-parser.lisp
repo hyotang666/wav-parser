@@ -54,6 +54,8 @@
 
 ;;;; fmt chunk
 
+(defvar *fmt* nil)
+
 (defclass fmt (r-iff:leaf)
   ((audio-format :initarg :audio-format
                  :type (unsigned-byte 16)
@@ -119,6 +121,43 @@
           (nibbles:write-ub16/le extra-params-size stream)
           (write-sequence (extra-params chunk) stream)))))
   chunk)
+
+;;;; data chunk
+
+(defclass data (r-iff:leaf) ())
+
+(defmethod initialize-instance ((chunk data) &key id stream size)
+  (if (not
+        (and stream
+             *fmt*
+             (= 1 (audio-format *fmt*))
+             (= 16 (bits-per-sample *fmt*))))
+      (call-next-method)
+      (with-slots ((chunk-id r-iff:id) (chunk-data r-iff:data))
+          chunk
+        (setf chunk-id id
+              chunk-data
+                (let ((vector
+                       (make-array (/ size 2) :element-type '(signed-byte 16))))
+                  (loop :for i :below (/ size 2)
+                        :do (setf (aref vector i)
+                                    (nibbles:read-sb16/le stream)))
+                  vector))
+        chunk)))
+
+(defmethod r-iff:compute-length ((chunk data))
+  (if (not
+        (and *fmt* (= 1 (audio-format *fmt*)) (= 16 (bits-per-sample *fmt*))))
+      (call-next-method)
+      (+ r-iff:+size-of-header+
+         (reduce #'+ (r-iff:data<-chunk chunk)
+                 :key (lambda (elt) (* 2 (length elt)))))))
+
+(defmethod r-iff:write-chunk ((chunk data) stream)
+  (if (not
+        (and *fmt* (= 1 (audio-format *fmt*)) (= 16 (bits-per-sample *fmt*))))
+      (call-next-method)
+      (error "niy")))
 
 ;;;; cue chunk
 
@@ -350,11 +389,17 @@
 
 (r-iff:defparser "WAVE" #'r-iff:node)
 
-(r-iff:defparser "fmt " #'r-iff:leaf :default-class fmt)
+(r-iff:defparser "fmt "
+                 (lambda (&rest args)
+                   (multiple-value-bind (chunk end)
+                       (apply #'r-iff:leaf args)
+                     (setf *fmt* chunk)
+                     (values chunk end)))
+                 :default-class fmt)
 
 (r-iff:defparser "cue " #'r-iff:leaf :default-class cue)
 
-(r-iff:defparser "data" #'r-iff:leaf)
+(r-iff:defparser "data" #'r-iff:leaf :default-class data)
 
 (r-iff:defparser "labl" #'r-iff:leaf :default-class labl)
 
@@ -362,4 +407,6 @@
 
 ;;;; IMPORT
 
-(defun wav (pathname) (r-iff:riff pathname))
+(defun wav (pathname)
+  (let ((*fmt*))
+    (r-iff:riff pathname)))
