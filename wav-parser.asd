@@ -2,11 +2,10 @@
 (in-package :asdf)
 (defsystem "wav-parser"
   :version
-  "0.6.0"
+  "0.6.1"
   :depends-on
   (
    "r-iff" ; RIFF file reader/writer.
-   "flexi-streams" ; In memory streams.
    "nibbles" ; Byte read/write.
    "local-time" ; Timestamp object.
    )
