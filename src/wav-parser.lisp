@@ -69,23 +69,26 @@
                     :accessor bits-per-sample)
    (extra-params :initarg :extra-params
                  :type (vector (unsigned-byte 8))
-                 :accessor extra-params)))
+                 :accessor extra-params))
+  (:default-initargs :id "fmt "))
 
 (defmethod initialize-instance ((o fmt) &key id stream size)
-  (with-slots ((chunk-id r-iff:id) audio-format num-channels sample-rate
-               byte-rate block-align bits-per-sample extra-params)
-      o
-    (setf chunk-id id
-          audio-format (nibbles:read-ub16/le stream)
-          num-channels (nibbles:read-ub16/le stream)
-          sample-rate (nibbles:read-ub32/le stream))
-    (nibbles:read-ub32/le stream) ; Discard byte-rate.
-    (nibbles:read-ub16/le stream) ; Discard block-align.
-    (setf bits-per-sample (nibbles:read-ub16/le stream))
-    (when (< 16 size)
-      (setf extra-params
-              (r-iff:read-vector stream (nibbles:read-ub16/le stream))))
-    o))
+  (if (null stream)
+      (call-next-method)
+      (with-slots ((chunk-id r-iff:id) audio-format num-channels sample-rate
+                   byte-rate block-align bits-per-sample extra-params)
+          o
+        (setf chunk-id id
+              audio-format (nibbles:read-ub16/le stream)
+              num-channels (nibbles:read-ub16/le stream)
+              sample-rate (nibbles:read-ub32/le stream))
+        (nibbles:read-ub32/le stream) ; Discard byte-rate.
+        (nibbles:read-ub16/le stream) ; Discard block-align.
+        (setf bits-per-sample (nibbles:read-ub16/le stream))
+        (when (< 16 size)
+          (setf extra-params
+                  (r-iff:read-vector stream (nibbles:read-ub16/le stream))))
+        o)))
 
 (defun byte-rate (fmt)
   (/ (* (sample-rate fmt) (num-channels fmt) (bits-per-sample fmt)) 8))
