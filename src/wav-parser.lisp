@@ -2,6 +2,9 @@
 
 (defpackage :wav-parser
   (:use :cl)
+  (:export ;;;; Main API.
+           ;; Import.
+           #:wav)
   (:export ;;;; FMT object.
            ;; class-name
            #:fmt

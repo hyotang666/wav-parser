@@ -4,7 +4,7 @@
   :description "Wav file format reader/writer."
   :license "MIT"
   :version
-  "1.1.0"
+  "2.0.0"
   :depends-on
   (
    "r-iff" ; RIFF file reader/writer.
