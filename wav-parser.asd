@@ -4,12 +4,14 @@
   :description "Wav file format reader/writer."
   :license "MIT"
   :version
-  "2.0.0"
+  "2.0.1"
   :depends-on
   (
    "r-iff" ; RIFF file reader/writer.
    "nibbles" ; Byte read/write.
    "local-time" ; Timestamp object.
+   "static-vectors" ; Foreign vector.
+   "trivial-garbage" ; To destruct foreign vector when gc works.
    )
   :pathname
   "src/"

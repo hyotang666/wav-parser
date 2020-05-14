@@ -141,10 +141,16 @@
         (setf chunk-id id
               chunk-data
                 (let ((vector
-                       (make-array (/ size 2) :element-type '(signed-byte 16))))
+                       (static-vectors:make-static-vector (/ size 2)
+                                                          :element-type '(signed-byte
+                                                                          16))))
                   (loop :for i :below (/ size 2)
                         :do (setf (aref vector i)
                                     (nibbles:read-sb16/le stream)))
+                  (trivial-garbage:finalize chunk
+                                            (lambda ()
+                                              (static-vectors:free-static-vector
+                                                vector)))
                   vector))
         chunk)))
 
